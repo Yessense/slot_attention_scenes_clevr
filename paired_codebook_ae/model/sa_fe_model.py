@@ -131,7 +131,7 @@ class SlotAttentionFeatureSwap(pl.LightningModule):
 
         # Total loss
         triple_loss = sa_scene_loss + total_loss + sa_changed_loss
-        self.log(f'{mode}/Triple loss', triple_loss)
+        self.log(f'{mode}/Triple_loss', triple_loss)
         #
         self.logger.experiment.log({f"experiment/scenes": [
             wandb.Image(image_scene[0], caption='Image Scene'),

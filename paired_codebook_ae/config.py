@@ -79,7 +79,7 @@ class ModelConfig:
     latent_dim: int = 1024
     mlp_hidden_size: int = 128
     binder: str = "fourier"
-    monitor: str = "Validation/Total"
+    monitor: str = "Validation/Triple_loss"
 
 
 @dataclass
