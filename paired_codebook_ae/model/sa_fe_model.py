@@ -64,6 +64,7 @@ class SlotAttentionFeatureSwap(pl.LightningModule):
 
         # get batch
         (image, donor), (image_scene, donor_scene), exchange_labels = batch
+
         # exchange_labels, image, donor, image_scene, donor_scene, object_images, object_masks = batch
         batch_size = image.shape[0]
 
@@ -152,11 +153,11 @@ class SlotAttentionFeatureSwap(pl.LightningModule):
         self._step(batch, batch_idx, mode='Test')
 
     def configure_optimizers(self):
-        optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr)
-        scheduler = lr_scheduler.OneCycleLR(optimizer, max_lr=self.lr,
-                                            epochs=self.hparams['max_epochs'],
-                                            steps_per_epoch=self.hparams['steps_per_epoch'],
-                                            pct_start=0.2)
+        optimizer = torch.optim.AdamW(self.parameters(), lr=self.cfg.experiment.lr)
+        scheduler = lr_scheduler.OneCycleLR(optimizer, max_lr=self.cfg.experiment.lr,
+                                            epochs=self.cfg.experiment.max_epochs,
+                                            steps_per_epoch=self.cfg.experiment.steps_per_epoch,
+                                            pct_start=self.cfg.experiment.pct_start)
         return {"optimizer": optimizer,
                 "lr_scheduler": {'scheduler': scheduler,
                                  'interval': 'step',

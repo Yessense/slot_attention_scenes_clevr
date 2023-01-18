@@ -25,53 +25,67 @@ class PairedClevr(DatasetWithInfo):
         features_range=[],
     )
 
-    def __init__(self, dataset_dir: Path,
-                 indices, with_labels=False):
+    def __init__(self, dataset_dir: Path):
         super().__init__(self.dataset_info)
-        self.with_labels = with_labels
+
         self.scenes_dir = dataset_dir / 'scenes'
         self.img_dir = dataset_dir / 'images'
+
         self.img_template = "{name}_{idx:06d}.png"
+        self.scene_template = "scene_{name}_{idx:06d}.png"
         self.json_template = "scene_{idx:06d}.json"
-        self._size = len(os.listdir(self.scenes_dir))
-        self.indices = indices
+
+        self.scenes_list = sorted(os.listdir(self.scenes_dir))
+        self._size = len(self.scenes_list)
 
     def __len__(self):
         return self._size
 
+    def get_image(self, image_name):
+        img_path = os.path.join(self.img_dir, image_name)
+        img = read_image(img_path, mode=torchvision.io.image.ImageReadMode.RGB) / 255
+        return img
+
     def __getitem__(self, idx):
-        json_path = os.path.join(self.scenes_dir, self.json_template.format(idx=idx))
-        with open(json_path) as json_file:
-            annotations = json.load(json_file)
 
-        images = []
-        labels = []
-        for name in ['img', 'pair']:
-            img_filename = self.img_template.format(name=name, idx=idx)
-            img_path = os.path.join(self.img_dir, img_filename)
-            img = read_image(img_path, mode=torchvision.io.image.ImageReadMode.RGB) / 255
-            images.append(img)
-            label = []
-            for obj in annotations:
-                if obj['image_filename'] == img_filename:
-                    o = obj['objects'][0]
-                    label.append(o['shape'])
-                    label.append(o['color'])
-                    label.append(o['size'])
-                    label.append(o['material'])
-                    label.append(int(((o['3d_coords'][0] + 3) * 32) // 6))
-                    label.append(int(((o['3d_coords'][1] + 3) * 32) // 6))
-                    labels.append(label)
-                    break
+        # Open json file
+        scene = self.scenes_list[idx]
+        with open(os.path.join(self.scenes_dir, scene), 'r') as f:
+            scenes_list = json.load(f)
+        scenes_dict = {row['image_filename']: row for row in scenes_list}
 
-        exchange_labels = torch.zeros((self.dataset_info.n_features), dtype=bool)
+        # Load discrete image, pair and scenes
+        image_name = self.img_template.format(name='img', idx=idx)
+        image = self.get_image(image_name)
+        image_scene = self.get_image(self.scene_template.format(name='img', idx=idx))
 
-        for i in range(self.dataset_info.n_features):
-            exchange_labels[i] = labels[0][i] != labels[1][i]
+        donor_name = self.img_template.format(name='pair', idx=idx)
+        donor = self.get_image(donor_name)
+        donor_scene = self.get_image(self.scene_template.format(name='pair', idx=idx))
 
-        exchange_labels = exchange_labels.unsqueeze(-1)
+        exchange_labels = self.get_difference(scenes_dict[image_name]['objects'][0],
+                                              scenes_dict[donor_name]['objects'][0])
 
-        return images, labels, exchange_labels
+        return (image, donor), (image_scene, donor_scene), exchange_labels
+
+    def get_difference(self, obj1, obj2):
+        exchange_labels = torch.zeros(self.dataset_info.n_features, dtype=bool)
+
+        if obj1['shape'] != obj2['shape']:
+            exchange_labels[0] = True
+        elif obj1['color'] != obj2['color']:
+            exchange_labels[1] = True
+        elif obj1['size'] != obj2['size']:
+            exchange_labels[2] = True
+        elif obj1['material'] != obj2['material']:
+            exchange_labels[3] = True
+        elif obj1['3d_coords'][0] != obj2['3d_coords'][0]:
+            exchange_labels[4] = True
+        elif obj1['3d_coords'][1] != obj2['3d_coords'][1]:
+            exchange_labels[5] = True
+        else:
+            raise ValueError(f'All features are the same {obj1}, {obj2}')
+        return exchange_labels.unsqueeze(-1)
 
 
 class PairedClevrDatamodule(pl.LightningDataModule):
@@ -92,15 +106,9 @@ class PairedClevrDatamodule(pl.LightningDataModule):
         self.image_size = (3, 128, 128)
 
     def setup(self, stage):
-        self.train_dataset = PairedClevr(
-            dataset_dir=self.path_to_paired_clevr_dir / 'train',
-            indices=list(range(10000))
-        )
+        self.train_dataset = PairedClevr(dataset_dir=self.path_to_paired_clevr_dir / 'train')
 
-        self.val_dataset = PairedClevr(
-            dataset_dir=self.path_to_paired_clevr_dir / 'val',
-            indices=list(range(1000))
-        )
+        self.val_dataset = PairedClevr(dataset_dir=self.path_to_paired_clevr_dir / 'val')
 
     def train_dataloader(self):
         return DataLoader(self.train_dataset, batch_size=self.batch_size,
@@ -118,18 +126,19 @@ class PairedClevrDatamodule(pl.LightningDataModule):
 
 if __name__ == '__main__':
     dataset = PairedClevr(
-        dataset_dir=Path('/home/yessense/data/paired_codebook_ae/data/paired_clevr/train/'),
-        indices=list(range(10000)))
+        dataset_dir=Path('/home/yessense/data/paired_codebook_ae/data/paired_clevr/train/'))
     start_idx = 300
     n_images = 2
 
     plt.figure(figsize=(30, 20))
-    fig, ax = plt.subplots(n_images, 2)
+    fig, ax = plt.subplots(n_images, 4)
     for i in range(n_images):
-        (img, pair), (labels), exchange_label = dataset[i + start_idx]
-        print(
-            *[dataset.dataset_info.feature_names[i] for i, exchange in enumerate(exchange_label) if
-              exchange])
+        (img, pair), (img_scene, donor_scene), exchange_label = dataset[i + start_idx]
+        # print(
+        #     *[dataset.dataset_info.feature_names[i] for i, exchange in enumerate(exchange_label) if
+        #       exchange])
         ax[i, 0].imshow(img.permute(1, 2, 0))
         ax[i, 1].imshow(pair.permute(1, 2, 0))
+        ax[i, 2].imshow(img_scene.permute(1, 2, 0))
+        ax[i, 3].imshow(donor_scene.permute(1, 2, 0))
     plt.show()
