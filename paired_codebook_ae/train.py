@@ -88,6 +88,8 @@ def main(cfg: VSADecoderConfig) -> None:
     trainer.fit(model,
                 datamodule=datamodule,
                 ckpt_path=cfg.checkpoint.ckpt_path)
+    # trainer.test(ckpt_path='best')
+
 
     print(f"Trained. Logging dir: {cfg.experiment.logging_dir}")
 

@@ -100,15 +100,15 @@ class SlotAttentionFeatureSwap(pl.LightningModule):
         self.log(f"{mode}/FE Reconstruct Image", image_loss)
         self.log(f"{mode}/FE Reconstruct Donor", donor_loss)
 
-        # # Log reconstruction
-        # if log_images(batch_idx):
-        #     self.logger.experiment.log({
-        #         f"{mode}/FE": [
-        #             wandb.Image(image[0], caption='Image'),
-        #             wandb.Image(donor[0], caption='Pair image'),
-        #             wandb.Image(recon_image_like[0], caption='Recon like Image'),
-        #             wandb.Image(recon_donor_like[0], caption='Recon like Pair image'),
-        #         ]}, commit=False)
+        # Log reconstruction
+        if log_images(batch_idx):
+            self.logger.experiment.log({
+                f"{mode}/FE": [
+                    wandb.Image(image[0], caption='Image'),
+                    wandb.Image(donor[0], caption='Pair image'),
+                    wandb.Image(recon_image_like[0], caption='Recon like Image'),
+                    wandb.Image(recon_donor_like[0], caption='Recon like Pair image'),
+                ]}, commit=False)
         #
         # ----------------------------------------
         # -- Change one slot
@@ -133,12 +133,18 @@ class SlotAttentionFeatureSwap(pl.LightningModule):
         triple_loss = sa_scene_loss + total_loss + sa_changed_loss
         self.log(f'{mode}/Triple loss', triple_loss)
         #
-        # self.logger.experiment.log({f"experiment/scenes": [
-        #     wandb.Image(image_scene[0], caption='Image Scene'),
-        #     wandb.Image(donor_scene[0], caption='Pair Scene'),
-        #     wandb.Image(recon_scene_combined[0], caption='Image rec'),
-        #     wandb.Image(recon_scene_changed[0], caption='pair rec'),
-        # ]})
+        self.logger.experiment.log({f"experiment/scenes": [
+            wandb.Image(image_scene[0], caption='Image Scene'),
+            wandb.Image(donor_scene[0], caption='Pair Scene'),
+            wandb.Image(recon_scene_combined[0], caption='Image rec'),
+            wandb.Image(recon_scene_changed[0], caption='pair rec'),
+        ]})
+
+        if (mode == 'Validation' or mode == 'Test') and self.cfg.dataset.requires_fid:
+            self.fid.update(donor_scene, real=True)
+            self.fid.update(recon_scene_changed, real=False)
+            fid = self.fid.compute()
+            self.log(f"{mode}/FID", fid)
         #
         return triple_loss
 
