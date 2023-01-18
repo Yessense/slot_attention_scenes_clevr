@@ -65,7 +65,7 @@ def main(cfg: VSADecoderConfig) -> None:
     ]
 
     wandb_logger = WandbLogger(
-        project=cfg.dataset.datamodule.mode + '_vsa',
+        project=cfg.dataset.datamodule.mode + 'full_pipeline_vsa',
         name=f'{cfg.dataset.datamodule.mode} -l {cfg.model.latent_dim} '
              f'-s {cfg.experiment.seed} '
              f'-bs {cfg.experiment.batch_size} '
