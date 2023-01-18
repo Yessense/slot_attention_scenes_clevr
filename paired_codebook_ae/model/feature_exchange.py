@@ -68,12 +68,10 @@ class FeatureExchange(pl.LightningModule):
 
     def forward(self, *batch):
         image: torch.tensor
-        image_labels: torch.tensor
         donor: torch.tensor
-        donor_labels: torch.tensor
         exchange_labels: torch.tensor
 
-        (image, donor), (image_labels, donor_labels), exchange_labels = batch
+        (image, donor), exchange_labels = batch
 
         image_latent = self.encoder(image)
         donor_latent = self.encoder(donor)
@@ -107,10 +105,11 @@ if __name__ == '__main__':
     n_features = 6
     image = torch.randn((batch_size, 3, 128, 128))
     donor = torch.randn((batch_size, 3, 128, 128))
-    image_labels = torch.zeros((batch_size, n_features))
-    donor_labels = torch.zeros((batch_size, n_features))
+    # image_labels = torch.zeros((batch_size, n_features))
+    # donor_labels = torch.zeros((batch_size, n_features))
     exchange_labels = torch.zeros((batch_size, n_features)).unsqueeze(-1).bool()
 
-    answer = model.forward((image, donor), (image_labels, donor_labels), exchange_labels)
+    # answer = model.forward((image, donor), (image_labels, donor_labels), exchange_labels)
+    answer = model.forward((image, donor), exchange_labels)
 
     print()

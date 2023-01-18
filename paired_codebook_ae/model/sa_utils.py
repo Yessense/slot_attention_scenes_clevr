@@ -58,6 +58,24 @@ def unstack_and_split(x, batch_size, num_slots, in_channels=3):
     return channels, masks
 
 
+def get_similar_image_indexes(image, images):
+    """Get most similar slot index batched """
+    # image -> (batch_size, num_channels, width, height)
+    # images -> (batch_size, num_slots, num_channels, width, height)
+    batch_size, num_slots, num_channels, width, height = images.shape
+    assert batch_size == image.shape[0]
+    image = image.unsqueeze(1)
+
+    dists = torch.cdist(image.reshape(batch_size, 1, -1),
+                        images.reshape(batch_size, num_slots, -1)).squeeze(1)
+    # dists -> (batch_size, 1, num_slots)
+    dists = dists.squeeze(1)
+    # dists -> (batch_size, num_slots)
+    arg_min = torch.argmin(dists, dim=-1)
+    # arg_min -> (batch_size) dtype: Long
+    return arg_min
+
+
 if __name__ == '__main__':
     grid = build_grid((4, 5))
 

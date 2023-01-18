@@ -68,7 +68,8 @@ class SlotAttentionAutoEncoder(pl.LightningModule):
         x_scene = self.decoder_pos(x_scene)
         x_scene = self.decoder(x_scene)
         # x -> (batch_size * num_slots, num_channels + 1, width, height)
-        recons, masks = unstack_and_split(x_scene, batch_size=batch_size, num_slots=self.cfg.model.num_slots,
+        recons, masks = unstack_and_split(x_scene, batch_size=batch_size,
+                                          num_slots=self.cfg.model.num_slots,
                                           in_channels=self.cfg.dataset.image_size[0])
 
         # Normalize alpha masks over slots.
