@@ -1,21 +1,21 @@
 import os
 import pathlib
+from typing import Union
 
 import hydra
 import torch
 import wandb
 from hydra.core.config_store import ConfigStore
+from hydra.utils import instantiate
 from omegaconf import OmegaConf
 import pytorch_lightning as pl
 from pytorch_lightning import seed_everything
 from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
 from pytorch_lightning.loggers import WandbLogger
 
-from .dataset.paired_dsprites import PairedDspritesDatamodule
+from paired_codebook_ae.dataset import PairedClevrDatamodule
 from .utils import find_best_model
-from .dataset.generalization_dsprites import GeneralizationDspritesDataModule
-from .dataset.dsprites import DspritesDatamodule
-from .model.paired_ae import VSADecoder
+from .model.sa_fe_model import SlotAttentionFeatureSwap
 from .config import VSADecoderConfig
 
 cs = ConfigStore.instance()
@@ -30,12 +30,7 @@ def main(cfg: VSADecoderConfig) -> None:
     seed_everything(cfg.experiment.seed)
     # cfg.metrics.metrics_dir = "/home/yessense/data/paired_codebook_ae/outputs/2023-01-15/21-52-26"
 
-    if cfg.dataset.mode == 'paired_dsprites':
-        datamodule = PairedDspritesDatamodule(
-            path_to_data_dir=cfg.dataset.path_to_dataset,
-            batch_size=cfg.experiment.batch_size)
-    else:
-        raise NotImplemented(f"Wrong dataset mode {cfg.dataset.path_to_dataset!r}")
+    datamodule: Union[PairedClevrDatamodule] = instantiate(cfg.dataset.datamodule)
 
     if not cfg.metrics.ckpt_path:
         cfg.metrics.ckpt_path = find_best_model(
@@ -43,11 +38,11 @@ def main(cfg: VSADecoderConfig) -> None:
 
     # print(cfg.metrics.ckpt_path)
 
-    model = VSADecoder.load_from_checkpoint(cfg.metrics.ckpt_path)
+    model = SlotAttentionFeatureSwap.load_from_checkpoint(cfg.metrics.ckpt_path)
 
     wandb_logger = WandbLogger(
-        project=f"metrics_{cfg.dataset.mode}_vsa",
-        name=f'{cfg.dataset.mode} -l {cfg.model.latent_dim} '
+        project=f"metrics_{cfg.dataset.datamodule.mode}_scenes",
+        name=f'{cfg.dataset.datamodule.mode} -l {cfg.model.latent_dim} '
              f'-s {cfg.experiment.seed} '
              f'-bs {cfg.experiment.batch_size} '
              f'vsa',
