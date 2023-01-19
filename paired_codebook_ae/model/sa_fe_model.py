@@ -1,9 +1,10 @@
 import math
 import os.path
 from argparse import ArgumentParser
-from typing import Tuple
+from typing import Tuple, Union, List
 
 import wandb
+from pytorch_lightning.utilities.types import EPOCH_OUTPUT
 from torch import nn
 from torch.optim import lr_scheduler
 
@@ -143,10 +144,13 @@ class SlotAttentionFeatureSwap(pl.LightningModule):
         if (mode == 'Validation' or mode == 'Test') and self.cfg.dataset.requires_fid:
             self.fid.update(donor_scene, real=True)
             self.fid.update(recon_scene_changed, real=False)
-            fid = self.fid.compute()
-            self.log(f"{mode}/FID", fid)
         #
         return triple_loss
+
+    def validation_epoch_end(self, outputs: Union[EPOCH_OUTPUT, List[EPOCH_OUTPUT]]) -> None:
+        fid = self.fid.compute()
+        self.log(f"Validation/FID", fid)
+
 
     def training_step(self, batch, batch_idx):
         total_loss = self._step(batch, batch_idx, mode='Train')
